@@ -53,17 +53,17 @@ export default function SessionPage() {
     const todayData = await todayRes.json();
     const itemsData = await itemsRes.json();
     const todayItems = itemsData.items ?? [];
-    setSelectedItems(todayItems);
     if (todayData.session) {
       applySession(todayData.session.id, todayData.session.plan, todayData.items);
-      setMessage(
-        todayItems.length
-          ? "已加载今日学习包。下方还有你从学习库选好、尚未编入本次训练的词条，可移除或确认生成。"
-          : "已加载今日学习包，你可以直接调整后保存。"
-      );
+      const bound = todayData.items ?? [];
+      const boundIds = new Set(bound.map((item: any) => Number(item.id)));
+      const pending = todayItems.filter((item: any) => !boundIds.has(Number(item.id)));
+      setSelectedItems([...bound, ...pending]);
+      setMessage("已加载今日学习包，你可以直接调整后保存。");
       setBusy(false);
       return;
     }
+    setSelectedItems(todayItems);
     setMessage(
       todayItems.length
         ? "你已选好今日学习词条。确认后即可由 AI 生成今日训练内容。"
@@ -115,7 +115,7 @@ export default function SessionPage() {
       return;
     }
     applySession(data.sessionId, data.plan, data.items);
-    setSelectedItems([]);
+    setSelectedItems(data.items ?? []);
     setMessage("今日学习包已生成，可以手动调整。");
   }
 
@@ -234,21 +234,29 @@ export default function SessionPage() {
       {selectedItems.length > 0 && (
         <section className="grid gap-4">
           <div className="panel p-5">
-            <h3 className="font-black">本次选好的学习词条</h3>
-            <p className="mt-1 text-sm text-[#536267]">以下词条已从学习库加入今日学习，确认后由 AI 据此生成今日训练内容（含豆包陪练指令）。不需要的可以直接移除。</p>
+            <h3 className="font-black">{plan ? "本次训练包含的词条" : "本次选好的学习词条"}</h3>
+            <p className="mt-1 text-sm text-[#536267]">
+              {plan
+                ? "以下词条已编入本次训练。如需增减，可回到学习库调整后重新生成今日训练。"
+                : "以下词条已从学习库加入今日学习，确认后由 AI 据此生成今日训练内容（含豆包陪练指令）。不需要的可以直接移除。"}
+            </p>
             <div className="mt-3 grid gap-2">
               {selectedItems.map((item) => (
                 <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-mist px-3 py-2">
                   <span className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</span>
-                  <button disabled={busy} onClick={() => removeSelected(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">移除</button>
+                  {!plan && (
+                    <button disabled={busy} onClick={() => removeSelected(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">移除</button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button disabled={busy || !selectedItems.length} onClick={generateFromSelected} className="btn-primary">确认并 AI 生成学习内容</button>
-            <a href="/library" className="btn-secondary link-button">返回学习库调整</a>
-          </div>
+          {!plan && (
+            <div className="flex flex-wrap gap-2">
+              <button disabled={busy || !selectedItems.length} onClick={generateFromSelected} className="btn-primary">确认并 AI 生成学习内容</button>
+              <a href="/library" className="btn-secondary link-button">返回学习库调整</a>
+            </div>
+          )}
         </section>
       )}
 
