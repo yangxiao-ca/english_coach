@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f7f8;
+  color: #17202a;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #d7dddf;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  color: #17202a;
+}
+
+input[type="checkbox"] {
+  width: auto;
+  border-radius: 4px;
+  padding: 0;
+}
+
+textarea {
+  min-height: 140px;
+}
+
+button {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 650;
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #536267;
+}
+
+.panel {
+  border: 1px solid #dfe5e7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.btn-primary {
+  background: #17202a;
+  color: white;
+}
+
+.btn-secondary {
+  background: #e9eeee;
+  color: #17202a;
+}
+
+.btn-danger {
+  background: #f9e7e4;
+  color: #a33d33;
+}

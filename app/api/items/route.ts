@@ -1,0 +1,8 @@
+import { listItems } from "@/lib/db";
+import { NextResponse } from "next/server";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const filters = Object.fromEntries(searchParams.entries());
+  return NextResponse.json({ items: listItems(filters) });
+}
