@@ -261,6 +261,35 @@ export function getItemStatusCounts() {
   }, {});
 }
 
+export function getDashboardStats() {
+  const statusCounts = getItemStatusCounts();
+  const todaySession = getTodayStudySession();
+  const due = getDb()
+    .prepare(
+      `SELECT count(*) AS c
+       FROM learning_items li
+       JOIN review_schedules rs ON rs.learning_item_id = li.id
+       WHERE li.status = 'active'
+       AND (rs.next_review_at IS NULL OR date(rs.next_review_at) <= date('now'))`
+    )
+    .get() as { c: number };
+  const transcripts = getDb()
+    .prepare("SELECT count(*) AS c, max(created_at) AS last FROM practice_transcripts")
+    .get() as { c: number; last: string | null };
+  return {
+    candidates: (statusCounts.candidate || 0) + (statusCounts.later || 0),
+    active: statusCounts.active || 0,
+    today: statusCounts.today || 0,
+    mastered: statusCounts.mastered || 0,
+    total: Object.values(statusCounts).reduce((a, b) => a + b, 0),
+    todaySessionExists: !!todaySession,
+    todaySessionId: todaySession?.id ?? null,
+    dueCount: due.c,
+    transcriptCount: transcripts.c,
+    lastTranscriptAt: transcripts.last
+  };
+}
+
 export function activateCandidateItems() {
   const database = getDb();
   const candidates = database.prepare("SELECT id FROM learning_items WHERE status IN ('candidate', 'later')").all() as Array<{ id: number }>;
@@ -309,8 +338,8 @@ export function updateItem(id: number, patch: Record<string, unknown>) {
 export function ensureReviewSchedule(itemId: number) {
   getDb()
     .prepare(
-      `INSERT OR IGNORE INTO review_schedules
-       (learning_item_id, next_review_at, status)
+      `      INSERT OR IGNORE INTO review_schedules
+       (learning_item_id, next_review_at, next_action)
        VALUES (?, date('now'), 'new')`
     )
     .run(itemId);

@@ -62,7 +62,7 @@ export default function TranscriptPage() {
 
   return (
     <div className="grid gap-5">
-      <h1 className="text-2xl font-black">转写评估</h1>
+      <h1 className="text-2xl font-black">录入反馈</h1>
       <section className="panel grid gap-4 p-5">
         <label className="field">
           <span className="label">study_session</span>

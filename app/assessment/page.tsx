@@ -21,7 +21,7 @@ export default function AssessmentPage() {
   if (!report) {
     return (
       <div className="grid gap-5">
-        <h1 className="text-2xl font-black">评估报告</h1>
+        <h1 className="text-2xl font-black">学习报告</h1>
         <div className="panel p-6 text-[#536267]">正在读取评估报告...</div>
       </div>
     );
@@ -31,7 +31,7 @@ export default function AssessmentPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black">评估报告</h1>
+          <h1 className="text-2xl font-black">学习报告</h1>
           <p className="mt-1 text-sm text-[#536267]">按日期查看每次练习后的 item 评估记录。</p>
         </div>
         <label className="field w-full max-w-xs">
