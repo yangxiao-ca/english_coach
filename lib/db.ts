@@ -99,7 +99,7 @@ function migrate(database: Database.Database) {
       current_interval_days INTEGER NOT NULL DEFAULT 1,
       last_practiced_at TEXT,
       next_review_at TEXT,
-      status TEXT NOT NULL DEFAULT 'new',
+      next_action TEXT NOT NULL DEFAULT 'new',
       FOREIGN KEY(learning_item_id) REFERENCES learning_items(id)
     );
 
@@ -111,6 +111,14 @@ function migrate(database: Database.Database) {
   `);
   ensureColumn(database, "learning_items", "study_priority", "TEXT NOT NULL DEFAULT '一般学习'");
   ensureColumn(database, "learning_items", "familiarity_level", "TEXT NOT NULL DEFAULT '完全陌生'");
+  renameColumnIfExists(database, "review_schedules", "status", "next_action");
+}
+
+function renameColumnIfExists(database: Database.Database, table: string, from: string, to: string) {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (columns.some((item) => item.name === from) && !columns.some((item) => item.name === to)) {
+    database.exec(`ALTER TABLE ${table} RENAME COLUMN ${from} TO ${to}`);
+  }
 }
 
 function ensureColumn(database: Database.Database, table: string, column: string, definition: string) {
@@ -233,7 +241,7 @@ export function listItems(filters: Record<string, string | undefined> = {}) {
     params.speaking_activation_level = filters.speaking_activation_level;
   }
   const sql = `
-    SELECT li.*, rs.mastery_level, rs.speaking_activation_level, rs.review_count, rs.last_practiced_at, rs.next_review_at, rs.status AS review_status
+    SELECT li.*, rs.mastery_level, rs.speaking_activation_level, rs.review_count, rs.last_practiced_at, rs.next_review_at, rs.next_action AS review_status
     FROM learning_items li
     LEFT JOIN review_schedules rs ON rs.learning_item_id = li.id
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -430,14 +438,14 @@ export function saveTranscriptAndAssessments(sessionId: number, transcript: stri
 }
 
 function applyReviewRule(itemId: number, usageStatus: UsageStatus) {
-  const rule: Record<UsageStatus, { days: number; status: string; mastery: number; activation: number; wrong: number; natural: number; practiced: number }> = {
-    not_used: { days: 1, status: "practice", mastery: 0, activation: -1, wrong: 0, natural: 0, practiced: 0 },
-    partial: { days: 2, status: "practice", mastery: 0, activation: 0, wrong: 0, natural: 0, practiced: 1 },
-    forced: { days: 3, status: "change_scenario", mastery: 0, activation: 0, wrong: 0, natural: 0, practiced: 1 },
-    wrong: { days: 1, status: "correction", mastery: -1, activation: -1, wrong: 1, natural: 0, practiced: 1 },
-    correct: { days: 7, status: "review", mastery: 1, activation: 1, wrong: 0, natural: 0, practiced: 1 },
-    natural: { days: 14, status: "active", mastery: 2, activation: 2, wrong: 0, natural: 1, practiced: 1 },
-    creative: { days: 30, status: "mastered", mastery: 3, activation: 3, wrong: 0, natural: 1, practiced: 1 }
+  const rule: Record<UsageStatus, { days: number; nextAction: string; mastery: number; activation: number; wrong: number; natural: number; practiced: number }> = {
+    not_used: { days: 1, nextAction: "practice", mastery: 0, activation: -1, wrong: 0, natural: 0, practiced: 0 },
+    partial: { days: 2, nextAction: "practice", mastery: 0, activation: 0, wrong: 0, natural: 0, practiced: 1 },
+    forced: { days: 3, nextAction: "change_scenario", mastery: 0, activation: 0, wrong: 0, natural: 0, practiced: 1 },
+    wrong: { days: 1, nextAction: "correction", mastery: -1, activation: -1, wrong: 1, natural: 0, practiced: 1 },
+    correct: { days: 7, nextAction: "review", mastery: 1, activation: 1, wrong: 0, natural: 0, practiced: 1 },
+    natural: { days: 14, nextAction: "active", mastery: 2, activation: 2, wrong: 0, natural: 1, practiced: 1 },
+    creative: { days: 30, nextAction: "mastered", mastery: 3, activation: 3, wrong: 0, natural: 1, practiced: 1 }
   };
   const selected = rule[usageStatus];
   ensureReviewSchedule(itemId);
@@ -452,7 +460,7 @@ function applyReviewRule(itemId: number, usageStatus: UsageStatus) {
            current_interval_days = @days,
            last_practiced_at = CASE WHEN @practiced = 1 THEN datetime('now') ELSE last_practiced_at END,
            next_review_at = date('now', @modifier),
-           status = @status
+           next_action = @nextAction
        WHERE learning_item_id = @itemId`
     )
     .run({ ...selected, modifier: `+${selected.days} days`, itemId });
@@ -466,7 +474,7 @@ export function getLatestAssessmentReport() {
   if (!session) return null;
   const rows = getDb()
     .prepare(
-      `SELECT ia.*, li.expression, li.type, rs.next_review_at, rs.status AS review_status
+      `SELECT ia.*, li.expression, li.type, rs.next_review_at, rs.next_action AS review_status
        FROM item_assessments ia
        JOIN learning_items li ON li.id = ia.learning_item_id
        LEFT JOIN review_schedules rs ON rs.learning_item_id = li.id
@@ -506,7 +514,7 @@ export function getAssessmentReportByDate(date?: string) {
   const sessionReports = sessions.map((session) => {
     const assessments = getDb()
       .prepare(
-        `SELECT ia.*, li.expression, li.type, rs.next_review_at, rs.status AS review_status
+        `SELECT ia.*, li.expression, li.type, rs.next_review_at, rs.next_action AS review_status
          FROM item_assessments ia
          JOIN learning_items li ON li.id = ia.learning_item_id
          LEFT JOIN review_schedules rs ON rs.learning_item_id = li.id
