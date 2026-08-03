@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ItemCard } from "./ItemCard";
 
 export function ItemsList({ status, mode }: { status?: string; mode: "candidate" | "library" }) {
@@ -9,6 +10,7 @@ export function ItemsList({ status, mode }: { status?: string; mode: "candidate"
   const [todayList, setTodayList] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const router = useRouter();
 
   async function load() {
     const query = new URLSearchParams({ ...filters });
@@ -34,19 +36,19 @@ export function ItemsList({ status, mode }: { status?: string; mode: "candidate"
       return;
     }
     setBusy(true);
-    setMessage("AI 正在根据今日清单补齐学习资料...");
-    const res = await fetch("/api/sessions", {
+    setMessage("正在把选中的词条加入今日学习...");
+    const res = await fetch("/api/items/set-today", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "selected_ai", item_ids: todayList.map((item) => item.id) })
+      body: JSON.stringify({ ids: todayList.map((item) => item.id) })
     });
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setMessage(data.error || "AI 补齐学习资料失败。");
+      setMessage(data.error || "加入今日学习失败。");
       return;
     }
-    window.location.href = "/session";
+    router.push("/session");
   }
 
   useEffect(() => {
@@ -73,9 +75,9 @@ export function ItemsList({ status, mode }: { status?: string; mode: "candidate"
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-black">今日学习清单</h2>
-                <p className="mt-1 text-sm text-[#536267]">从下面筛选后的学习库里逐个加入，确认后 AI 会补齐今日训练资料。</p>
+                <p className="mt-1 text-sm text-[#536267]">从下面筛选后的学习库里逐个加入。确认后这些词条会进入「今日学习」，再到那里由 AI 生成训练内容。</p>
               </div>
-              <button disabled={busy || !todayList.length} onClick={confirmTodayList} className="btn-primary">确认并 AI 补齐</button>
+              <button disabled={busy || !todayList.length} onClick={confirmTodayList} className="btn-primary">确认并添加到今日学习</button>
             </div>
             {todayList.length ? (
               <div className="flex flex-wrap gap-2">

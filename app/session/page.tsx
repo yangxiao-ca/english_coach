@@ -30,6 +30,7 @@ export default function SessionPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [draft, setDraft] = useState<Plan>(emptyPlan);
   const [items, setItems] = useState<any[]>([]);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [canActivateCandidates, setCanActivateCandidates] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -44,16 +45,25 @@ export default function SessionPage() {
   async function loadTodayPackage() {
     setBusy(true);
     setError("");
-    setMessage("正在读取今日学习包...");
-    const res = await fetch("/api/sessions/today");
-    const data = await res.json();
-    if (data.session) {
-      applySession(data.session.id, data.session.plan, data.items);
+    setMessage("正在读取今日学习信息...");
+    const [todayRes, itemsRes] = await Promise.all([
+      fetch("/api/sessions/today"),
+      fetch("/api/items?status=today")
+    ]);
+    const todayData = await todayRes.json();
+    const itemsData = await itemsRes.json();
+    setSelectedItems(itemsData.items ?? []);
+    if (todayData.session) {
+      applySession(todayData.session.id, todayData.session.plan, todayData.items);
       setMessage("已加载今日学习包，你可以直接调整后保存。");
       setBusy(false);
       return;
     }
-    setMessage("今天还没有学习包。你可以去学习库选 item 后 AI 补齐，或在这里创建空白学习包。");
+    setMessage(
+      selectedItems.length
+        ? "你已选好今日学习词条。确认后即可由 AI 生成今日训练内容。"
+        : "还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容。"
+    );
     setBusy(false);
   }
 
@@ -63,6 +73,28 @@ export default function SessionPage() {
     setDraft(nextPlan);
     setItems(nextItems);
     setCanActivateCandidates(false);
+  }
+
+  async function generateFromSelected() {
+    const ids = selectedItems.map((item) => item.id);
+    if (!ids.length) return;
+    setBusy(true);
+    setError("");
+    setMessage("AI 正在根据你选好的词条生成今日训练内容...");
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "selected_ai", item_ids: ids })
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error || "生成失败。");
+      return;
+    }
+    applySession(data.sessionId, data.plan, data.items);
+    setSelectedItems([]);
+    setMessage("今日学习包已生成，可以手动调整。");
   }
 
   async function create() {
@@ -224,9 +256,25 @@ export default function SessionPage() {
             </div>
           </div>
         </section>
+      ) : selectedItems.length ? (
+        <section className="grid gap-4">
+          <div className="panel p-5">
+            <h3 className="font-black">本次选好的学习词条</h3>
+            <p className="mt-1 text-sm text-[#536267]">以下词条已从学习库加入今日学习，确认后由 AI 据此生成今日训练内容（含豆包陪练指令）。</p>
+            <div className="mt-3 grid gap-2">
+              {selectedItems.map((item) => (
+                <p key={item.id} className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</p>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button disabled={busy} onClick={generateFromSelected} className="btn-primary">确认并 AI 生成学习内容</button>
+            <a href="/library" className="btn-secondary link-button">返回学习库调整</a>
+          </div>
+        </section>
       ) : (
         <div className="panel grid gap-4 p-6 text-[#536267]">
-          <p>今天还没有学习包。建议先去学习库筛选 item 并确认 AI 补齐；也可以在这里创建空白学习包。</p>
+          <p>还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容；也可以直接在这里从到期复习中 AI 生成，或创建空白学习包。</p>
           <div className="flex flex-wrap gap-2">
             <button disabled={busy} onClick={create} className="btn-primary">AI 自动生成</button>
             <a href="/library" className="btn-secondary link-button">去学习库选 item</a>
