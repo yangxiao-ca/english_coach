@@ -16,7 +16,12 @@ export default function Home() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="panel p-5" style={{ borderTop: "3px solid #6E8B7E" }}>
-          <h2 className="text-lg font-black text-[#3f6b5d]">① 学习库</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-[#3f6b5d]">学习库</h2>
+            <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wider" style={{ background: "#eaf0ed", color: "#6E8B7E" }}>
+              STEP 01
+            </span>
+          </div>
           <p className="text-sm text-[#536267]">维护与生成</p>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div>
@@ -46,7 +51,12 @@ export default function Home() {
         </div>
 
         <div className="panel p-5" style={{ borderTop: "3px solid #D96C5F" }}>
-          <h2 className="text-lg font-black text-[#a33d33]">② 今日学习</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-[#a33d33]">今日学习</h2>
+            <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wider" style={{ background: "#fbecea", color: "#D96C5F" }}>
+              STEP 02
+            </span>
+          </div>
           <p className="text-sm text-[#536267]">生成与导出</p>
           <div className="mt-3">
             <div className="text-2xl font-black">
@@ -64,7 +74,12 @@ export default function Home() {
         </div>
 
         <div className="panel p-5" style={{ borderTop: "3px solid #D8A63A" }}>
-          <h2 className="text-lg font-black text-[#8a6a1f]">③ 反馈与记录</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-[#8a6a1f]">反馈与记录</h2>
+            <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wider" style={{ background: "#faf3e3", color: "#D8A63A" }}>
+              STEP 03
+            </span>
+          </div>
           <p className="text-sm text-[#536267]">录入与报告</p>
           <div className="mt-3">
             <div className="text-2xl font-black">{s.transcriptCount}</div>
