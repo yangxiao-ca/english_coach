@@ -75,6 +75,23 @@ export default function SessionPage() {
     setCanActivateCandidates(false);
   }
 
+  async function removeSelected(itemId: number) {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/items/${itemId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "active" })
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setError("移除词条失败。");
+      return;
+    }
+    setSelectedItems((current) => current.filter((item) => Number(item.id) !== itemId));
+    setMessage("已从今日学习移除该词条。");
+  }
+
   async function generateFromSelected() {
     const ids = selectedItems.map((item) => item.id);
     if (!ids.length) return;
@@ -260,15 +277,18 @@ export default function SessionPage() {
         <section className="grid gap-4">
           <div className="panel p-5">
             <h3 className="font-black">本次选好的学习词条</h3>
-            <p className="mt-1 text-sm text-[#536267]">以下词条已从学习库加入今日学习，确认后由 AI 据此生成今日训练内容（含豆包陪练指令）。</p>
+            <p className="mt-1 text-sm text-[#536267]">以下词条已从学习库加入今日学习，确认后由 AI 据此生成今日训练内容（含豆包陪练指令）。不需要的可以直接移除。</p>
             <div className="mt-3 grid gap-2">
               {selectedItems.map((item) => (
-                <p key={item.id} className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</p>
+                <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-mist px-3 py-2">
+                  <span className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</span>
+                  <button disabled={busy} onClick={() => removeSelected(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">移除</button>
+                </div>
               ))}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button disabled={busy} onClick={generateFromSelected} className="btn-primary">确认并 AI 生成学习内容</button>
+            <button disabled={busy || !selectedItems.length} onClick={generateFromSelected} className="btn-primary">确认并 AI 生成学习内容</button>
             <a href="/library" className="btn-secondary link-button">返回学习库调整</a>
           </div>
         </section>
