@@ -412,6 +412,112 @@ export function getTodayStudySession() {
     .get() as any;
 }
 
+export function getAllStagedTodayIds(): number[] {
+  const rows = getDb().prepare("SELECT id FROM learning_items WHERE status = 'today'").all() as Array<{ id: number }>;
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Single source of truth for "what I study today":
+ * - session.target_item_ids  => committed items (authoritative)
+ * - learning_items.status='today' items NOT yet in the session => pending staged additions
+ */
+export function getTodayItems(): { session: any | null; committed: any[]; pending: any[] } {
+  const session = getTodayStudySession();
+  if (!session) {
+    return { session: null, committed: [], pending: getItemsByIds(getAllStagedTodayIds()) };
+  }
+  const committedIds: number[] = JSON.parse(session.target_item_ids || "[]").map((id: any) => Number(id));
+  const committed = getItemsByIds(committedIds);
+  const committedSet = new Set(committedIds.map((id) => Number(id)));
+  const pending = getItemsByIds(getAllStagedTodayIds().filter((id) => !committedSet.has(Number(id))));
+  return { session, committed, pending };
+}
+
+/**
+ * Append staged (status='today') items to the existing today session WITHOUT regenerating the plan.
+ * Flips the appended items back to 'active' and keeps target_expressions roughly in sync.
+ * Returns null if there is no today session (caller should generate one first).
+ */
+export function appendToTodaySession(itemIds: number[]): { session: any; items: any[] } | null {
+  const database = getDb();
+  const session = getTodayStudySession();
+  if (!session) return null;
+  const existingIds: number[] = JSON.parse(session.target_item_ids || "[]").map((id: any) => Number(id));
+  const existingSet = new Set(existingIds);
+  const added = itemIds.filter((id) => !existingSet.has(Number(id)));
+  if (!added.length) {
+    const updated = getStudySession(session.id);
+    return { session: updated, items: getItemsByIds(existingIds) };
+  }
+  const newIds = [...existingIds, ...added];
+  const plan = JSON.parse(session.plan_json || "{}");
+  if (added.length) {
+    const addedItems = getItemsByIds(added) as any[];
+    plan.target_expressions = Array.from(new Set([...(plan.target_expressions || []), ...addedItems.map((item) => item.expression)]));
+  }
+  database
+    .prepare("UPDATE study_sessions SET target_item_ids = ?, plan_json = ? WHERE id = ?")
+    .run(JSON.stringify(newIds), JSON.stringify(plan), session.id);
+  database
+    .prepare(`UPDATE learning_items SET status = 'active' WHERE status = 'today' AND id IN (${added.map(() => "?").join(",")})`)
+    .run(...added);
+  const updated = getStudySession(session.id);
+  return { session: updated, items: getItemsByIds(newIds) };
+}
+
+/**
+ * Remove items from today's session binding and send them back to the staged
+ * ("待加入") pool so the user can re-add them. Keeps the plan's target_expressions
+ * roughly in sync by pruning expressions of the removed items.
+ */
+export function detachFromTodaySession(itemIds: number[]): { session: any; committed: any[]; pending: any[] } | null {
+  const database = getDb();
+  const session = getTodayStudySession();
+  if (!session) return null;
+  const existingIds: number[] = JSON.parse(session.target_item_ids || "[]").map((id: any) => Number(id));
+  const removeSet = new Set(itemIds.map((id) => Number(id)));
+  const removedExisting = existingIds.filter((id) => removeSet.has(Number(id)));
+  const newIds = existingIds.filter((id) => !removeSet.has(Number(id)));
+  const plan = JSON.parse(session.plan_json || "{}");
+  if (removedExisting.length) {
+    const removedItems = getItemsByIds(removedExisting) as any[];
+    const removedExpr = new Set(removedItems.map((item) => item.expression));
+    if (Array.isArray(plan.target_expressions)) {
+      plan.target_expressions = plan.target_expressions.filter((e: string) => !removedExpr.has(e));
+    }
+  }
+  database
+    .prepare("UPDATE study_sessions SET target_item_ids = ?, plan_json = ? WHERE id = ?")
+    .run(JSON.stringify(newIds), JSON.stringify(plan), session.id);
+  if (itemIds.length) {
+    database
+      .prepare(`UPDATE learning_items SET status = 'today' WHERE id IN (${itemIds.map(() => "?").join(",")})`)
+      .run(...itemIds);
+  }
+  const updated = getStudySession(session.id);
+  const committedSet = new Set(newIds.map((id) => Number(id)));
+  const pending = getItemsByIds(getAllStagedTodayIds().filter((id) => !committedSet.has(Number(id))));
+  return { session: updated, committed: getItemsByIds(newIds), pending };
+}
+
+/**
+ * Clear the AI-generated content for today: delete the today session and return
+ * its committed items to the staged ("待加入") pool so the user can regenerate.
+ */
+export function clearTodaySession(): void {
+  const database = getDb();
+  const session = getTodayStudySession();
+  if (!session) return;
+  const committedIds: number[] = JSON.parse(session.target_item_ids || "[]").map((id: any) => Number(id));
+  database.prepare("DELETE FROM study_sessions WHERE id = ?").run(session.id);
+  if (committedIds.length) {
+    database
+      .prepare(`UPDATE learning_items SET status = 'today' WHERE id IN (${committedIds.map(() => "?").join(",")})`)
+      .run(...committedIds);
+  }
+}
+
 export function updateStudySessionPlan(id: number, plan: SessionPlan) {
   getDb().prepare("UPDATE study_sessions SET title = ?, plan_json = ? WHERE id = ?").run(plan.title, JSON.stringify(plan), id);
 }

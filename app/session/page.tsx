@@ -29,8 +29,8 @@ export default function SessionPage() {
   const [message, setMessage] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [draft, setDraft] = useState<Plan>(emptyPlan);
-  const [items, setItems] = useState<any[]>([]);
-  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [committedItems, setCommittedItems] = useState<any[]>([]);
+  const [pendingItems, setPendingItems] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [canActivateCandidates, setCanActivateCandidates] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -42,101 +42,106 @@ export default function SessionPage() {
     loadTodayPackage();
   }, []);
 
+  // Single reload path: rebuild every view from the authoritative today endpoint.
+  async function refreshToday() {
+    const todayRes = await fetch("/api/sessions/today");
+    const todayData = await todayRes.json();
+    if (todayData.session) {
+      setSessionId(todayData.session.id);
+      setPlan(todayData.session.plan ?? null);
+      setDraft(todayData.session.plan ?? emptyPlan);
+      setCommittedItems(todayData.items ?? []);
+    } else {
+      setSessionId(null);
+      setPlan(null);
+      setDraft(emptyPlan);
+      setCommittedItems([]);
+    }
+    setPendingItems(todayData.pending ?? []);
+  }
+
   async function loadTodayPackage() {
     setBusy(true);
     setError("");
     setMessage("正在读取今日学习信息...");
-    const [todayRes, itemsRes] = await Promise.all([
-      fetch("/api/sessions/today"),
-      fetch("/api/items?status=today")
-    ]);
-    const todayData = await todayRes.json();
-    const itemsData = await itemsRes.json();
-    const todayItems = itemsData.items ?? [];
-    if (todayData.session) {
-      applySession(todayData.session.id, todayData.session.plan, todayData.items);
-      const bound = todayData.items ?? [];
-      const boundIds = new Set(bound.map((item: any) => Number(item.id)));
-      const pending = todayItems.filter((item: any) => !boundIds.has(Number(item.id)));
-      setSelectedItems([...bound, ...pending]);
-      setMessage("已加载今日学习包，你可以直接调整后保存。");
+    await refreshToday();
+    if (!sessionId && pendingItems.length) {
+      setMessage("你已选好今日学习词条。确认后即可由 AI 生成今日训练内容；不需要的可以先退回学习库。");
+    } else if (!sessionId && !pendingItems.length) {
+      setMessage("还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容；也可以直接在这里从到期复习中 AI 生成，或创建空白学习包。");
+    } else {
+      setMessage("已加载今日学习包。你可以调整内容、删减词条，或清空后重新生成。");
+    }
+    setBusy(false);
+  }
+
+  // Context-aware (re)generate: staged -> generate from staged; none staged & no session -> due; session exists -> regenerate.
+  async function generate() {
+    setBusy(true);
+    setError("");
+    try {
+      if (sessionId) {
+        const ok = window.confirm("这会覆盖你手动调整的计划，确定用 AI 重新生成今日训练吗？");
+        if (!ok) {
+          setBusy(false);
+          setMessage("已保留你当前的调整。");
+          return;
+        }
+        setMessage("AI 正在重新生成今日训练内容...");
+        const res = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "regenerate" })
+        });
+        const data = await res.json();
+        setBusy(false);
+        if (!res.ok) {
+          setError(data.error || "重新生成失败。");
+          return;
+        }
+        await refreshToday();
+        setMessage("已用 AI 重新生成今日训练（覆盖原调整）。");
+        return;
+      }
+      if (pendingItems.length > 0) {
+        setMessage("AI 正在根据你选好的词条生成今日训练内容...");
+        const res = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "selected_ai", item_ids: pendingItems.map((i) => i.id) })
+        });
+        const data = await res.json();
+        setBusy(false);
+        if (!res.ok) {
+          setError(data.error || "生成失败。");
+          return;
+        }
+        await refreshToday();
+        setMessage("今日学习包已生成，可以手动调整。");
+        return;
+      }
+      setMessage("AI 正在生成今日学习包...");
+      const res = await fetch("/api/sessions", { method: "POST" });
+      const data = await res.json();
       setBusy(false);
-      return;
+      if (!res.ok) {
+        setError(data.error);
+        setCanActivateCandidates(Boolean((data.counts?.candidate || 0) + (data.counts?.later || 0)));
+        return;
+      }
+      await refreshToday();
+      setMessage("今日学习包已生成，可以手动调整。");
+    } catch (e: any) {
+      setBusy(false);
+      setError(e.message || "生成失败。");
     }
-    setSelectedItems(todayItems);
-    setMessage(
-      todayItems.length
-        ? "你已选好今日学习词条。确认后即可由 AI 生成今日训练内容。"
-        : "还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容。"
-    );
-    setBusy(false);
-  }
-
-  function applySession(id: number, nextPlan: Plan, nextItems: any[]) {
-    setSessionId(id);
-    setPlan(nextPlan);
-    setDraft(nextPlan);
-    setItems(nextItems);
-    setCanActivateCandidates(false);
-  }
-
-  async function removeSelected(itemId: number) {
-    setBusy(true);
-    setError("");
-    const res = await fetch(`/api/items/${itemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "active" })
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setError("移除词条失败。");
-      return;
-    }
-    setSelectedItems((current) => current.filter((item) => Number(item.id) !== itemId));
-    setMessage("已从今日学习移除该词条。");
-  }
-
-  async function generateFromSelected() {
-    const ids = selectedItems.map((item) => item.id);
-    if (!ids.length) return;
-    setBusy(true);
-    setError("");
-    setMessage("AI 正在根据你选好的词条生成今日训练内容...");
-    const res = await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "selected_ai", item_ids: ids })
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error || "生成失败。");
-      return;
-    }
-    applySession(data.sessionId, data.plan, data.items);
-    setSelectedItems(data.items ?? []);
-    setMessage("今日学习包已生成，可以手动调整。");
-  }
-
-  async function create() {
-    setBusy(true);
-    setError("");
-    setMessage("AI 正在生成今日学习包...");
-    const res = await fetch("/api/sessions", { method: "POST" });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setMessage("");
-      setError(data.error);
-      setCanActivateCandidates(Boolean((data.counts?.candidate || 0) + (data.counts?.later || 0)));
-      return;
-    }
-    applySession(data.sessionId, data.plan, data.items);
-    setMessage("今日学习包已生成，可以手动调整。");
   }
 
   async function createManual() {
+    if (sessionId) {
+      const ok = window.confirm("已存在今日训练包，创建空白包会覆盖它。确定继续吗？");
+      if (!ok) return;
+    }
     setBusy(true);
     setError("");
     setMessage("正在创建空白学习包...");
@@ -158,12 +163,103 @@ export default function SessionPage() {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setMessage("");
       setError(data.error || "手动创建失败。");
       return;
     }
-    applySession(data.sessionId, data.plan, data.items);
+    await refreshToday();
     setMessage("已创建空白学习包。你可以完全手动填写并保存。");
+  }
+
+  async function appendSingle(itemId: number) {
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "append", item_ids: [itemId] })
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error || "加入今日训练失败。");
+      return;
+    }
+    await refreshToday();
+    setMessage("已将该词条编入今日训练。");
+  }
+
+  async function appendBulk() {
+    const ids = pendingItems.map((i) => i.id);
+    if (!ids.length) return;
+    setBusy(true);
+    setError("");
+    setMessage("正在把待加词条编入今日训练...");
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "append", item_ids: ids })
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error || "加入今日训练失败。");
+      return;
+    }
+    await refreshToday();
+    setMessage("已将待加词条编入今日训练。");
+  }
+
+  async function removeFromToday(itemId: number) {
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/sessions/today", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remove_ids: [itemId] })
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error || "移除词条失败。");
+      return;
+    }
+    await refreshToday();
+    setMessage("已从今日训练移除该词条（已退回「待加入」，可重新编入）。");
+  }
+
+  async function unstageItem(itemId: number) {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/items/${itemId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "active" })
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setError("退回学习库失败。");
+      return;
+    }
+    setPendingItems((current) => current.filter((item) => Number(item.id) !== itemId));
+    setMessage("已退回学习库。");
+  }
+
+  async function clearToday() {
+    const ok = window.confirm(
+      "这会清空当日 AI 已生成的内容，词条将退回「待加入」，你可以重新生成。确定清空吗？"
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError("");
+    setMessage("正在清空当日 AI 已生成内容...");
+    const res = await fetch("/api/sessions/today", { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) {
+      setError("清空失败。");
+      return;
+    }
+    await refreshToday();
+    setMessage("已清空当日 AI 已生成内容，词条已退回可选状态，可重新生成。");
   }
 
   async function save() {
@@ -200,8 +296,10 @@ export default function SessionPage() {
       setError("没有可加入学习库的候选项。");
       return;
     }
-    await create();
+    await generate();
   }
+
+  const hasItems = committedItems.length > 0 || pendingItems.length > 0;
 
   return (
     <div className="grid gap-5">
@@ -211,10 +309,12 @@ export default function SessionPage() {
           {sessionId && <p className="mt-1 text-sm font-bold text-[#536267]">Study session #{sessionId}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button disabled={busy} onClick={create} className="btn-secondary">AI 自动生成</button>
+          <button disabled={busy} onClick={generate} className="btn-primary">
+            {sessionId ? "重新生成今日训练" : "AI 生成今日训练材料"}
+          </button>
           <a href="/library" className="btn-secondary link-button">去学习库选 item</a>
           <button disabled={busy} onClick={createManual} className="btn-secondary">创建空白包</button>
-          <button disabled={saving || !sessionId} onClick={save} className="btn-primary">保存调整</button>
+          <button disabled={saving || !sessionId} onClick={save} className="btn-secondary">保存调整</button>
         </div>
       </div>
 
@@ -231,37 +331,76 @@ export default function SessionPage() {
         </div>
       )}
 
-      {selectedItems.length > 0 && (
+      {/* Items region — always visible so the staging options never disappear on generate */}
+      {hasItems ? (
         <section className="grid gap-4">
-          <div className="panel p-5">
-            <h3 className="font-black">{plan ? "本次训练包含的词条" : "本次选好的学习词条"}</h3>
-            <p className="mt-1 text-sm text-[#536267]">
-              {plan
-                ? "以下词条已编入本次训练。如需增减，可回到学习库调整后重新生成今日训练。"
-                : "以下词条已从学习库加入今日学习，确认后由 AI 据此生成今日训练内容（含豆包陪练指令）。不需要的可以直接移除。"}
-            </p>
-            <div className="mt-3 grid gap-2">
-              {selectedItems.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-mist px-3 py-2">
-                  <span className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</span>
-                  {!plan && (
-                    <button disabled={busy} onClick={() => removeSelected(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">移除</button>
-                  )}
-                </div>
-              ))}
+          {committedItems.length > 0 && (
+            <div className="panel p-5">
+              <h3 className="font-black">本次训练包含的词条</h3>
+              <p className="mt-1 text-sm text-[#536267]">
+                以下词条已编入本次训练（权威清单见 study_sessions.target_item_ids）。不需要的可以直接移除，移除后会退回「待加入」，可再编入。
+              </p>
+              <div className="mt-3 grid gap-2">
+                {committedItems.map((item) => (
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-mist px-3 py-2">
+                    <span className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</span>
+                    <button disabled={busy} onClick={() => removeFromToday(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">移除</button>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-          {!plan && (
-            <div className="flex flex-wrap gap-2">
-              <button disabled={busy || !selectedItems.length} onClick={generateFromSelected} className="btn-primary">确认并 AI 生成学习内容</button>
-              <a href="/library" className="btn-secondary link-button">返回学习库调整</a>
+          )}
+
+          {pendingItems.length > 0 && (
+            <div className="panel grid gap-3 border-[#efc8c2] bg-[#fff7f5] p-5">
+              <h3 className="font-black text-[#a33d33]">待加入今日训练（已在库选中，尚未编入）</h3>
+              <p className="text-sm text-[#536267]">
+                这些词条已在「今日学习」清单中，但还没编入本次训练。可一键编入，或退回学习库。
+              </p>
+              <div className="mt-3 grid gap-2">
+                {pendingItems.map((item) => (
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white px-3 py-2">
+                    <span className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</span>
+                    <span className="flex flex-wrap gap-2">
+                      {sessionId && (
+                        <button disabled={busy} onClick={() => appendSingle(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">加入</button>
+                      )}
+                      <button disabled={busy} onClick={() => unstageItem(Number(item.id))} className="btn-secondary !px-2 !py-1 text-xs">退回学习库</button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {sessionId && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button disabled={busy || !pendingItems.length} onClick={appendBulk} className="btn-primary">全部加入今日训练</button>
+                </div>
+              )}
             </div>
           )}
         </section>
+      ) : (
+        <div className="panel grid gap-4 p-6 text-[#536267]">
+          <p>还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容；也可以直接在这里从到期复习中 AI 生成，或创建空白学习包。</p>
+          <div className="flex flex-wrap gap-2">
+            <button disabled={busy} onClick={generate} className="btn-primary">AI 生成今日训练材料</button>
+            <a href="/library" className="btn-secondary link-button">去学习库选 item</a>
+            <button disabled={busy} onClick={createManual} className="btn-secondary">创建空白包</button>
+          </div>
+        </div>
       )}
 
+      {/* Plan region — generated content lives here; generating never wipes the items region above */}
       {plan ? (
         <section className="grid gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-black">AI 已生成的训练内容</h3>
+            <div className="flex flex-wrap gap-2">
+              <button disabled={busy} onClick={clearToday} className="btn-secondary !border-[#efc8c2] !text-[#a33d33]">
+                清空当日 AI 已生成内容
+              </button>
+            </div>
+          </div>
+
           <div className="panel grid gap-3 p-5">
             <label className="field">
               <span className="label">学习包标题</span>
@@ -299,8 +438,8 @@ export default function SessionPage() {
           <div className="panel p-5">
             <h3 className="font-black">本次目标 learning_items</h3>
             <div className="mt-3 grid gap-2">
-              {items.length ? (
-                items.map((item) => <p key={item.id} className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</p>)
+              {committedItems.length ? (
+                committedItems.map((item) => <p key={item.id} className="text-sm"><b>{item.expression}</b> · {item.meaning_cn}</p>)
               ) : (
                 <p className="text-sm text-[#536267]">手动学习包可以只使用上方“今日目标表达”维护目标；不会绑定学习库 item。</p>
               )}
@@ -308,16 +447,9 @@ export default function SessionPage() {
           </div>
         </section>
       ) : (
-        selectedItems.length === 0 && (
-          <div className="panel grid gap-4 p-6 text-[#536267]">
-            <p>还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容；也可以直接在这里从到期复习中 AI 生成，或创建空白学习包。</p>
-            <div className="flex flex-wrap gap-2">
-              <button disabled={busy} onClick={create} className="btn-primary">AI 自动生成</button>
-              <a href="/library" className="btn-secondary link-button">去学习库选 item</a>
-              <button disabled={busy} onClick={createManual} className="btn-secondary">创建空白包</button>
-            </div>
-          </div>
-        )
+        <div className="panel grid gap-3 p-5 text-[#536267]">
+          <p>还没有生成今日训练内容。确认上方词条后，点「AI 生成今日训练材料」即可生成（含豆包陪练指令）。</p>
+        </div>
       )}
     </div>
   );
