@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import UsageGuide from "@/components/UsageGuide";
 
 const providerDefaults: Record<string, { label: string; model: string; baseURL: string; hint: string }> = {
   deepseek: {
@@ -24,6 +25,7 @@ const providerDefaults: Record<string, { label: string; model: string; baseURL: 
 };
 
 export default function SettingsPage() {
+  const [tab, setTab] = useState<"ai" | "guide">("ai");
   const [provider, setProvider] = useState("deepseek");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(providerDefaults.deepseek.model);
@@ -68,59 +70,80 @@ export default function SettingsPage() {
   return (
     <div className="grid gap-5">
       <div>
-        <h1 className="text-2xl font-black">AI 设置</h1>
-        <p className="mt-1 text-sm text-[#536267]">选择模型服务并保存 API Key。本地 MVP 会把配置保存在 SQLite 数据库里。</p>
+        <h1 className="text-2xl font-black">设置</h1>
+        <p className="mt-1 text-sm text-[#536267]">配置 AI 服务，或查看系统的完整使用说明与「学新词」标准。</p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {Object.entries(providerDefaults).map(([key, option]) => (
-          <button
-            key={key}
-            onClick={() => chooseProvider(key)}
-            className={`panel p-4 text-left ${provider === key ? "border-ink ring-2 ring-ink" : ""}`}
-          >
-            <span className="block text-lg font-black">{option.label}</span>
-            <span className="mt-2 block text-sm leading-6 text-[#536267]">{option.hint}</span>
-          </button>
-        ))}
-      </section>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setTab("ai")}
+          className={`rounded-lg px-4 py-2 text-sm font-black ${tab === "ai" ? "bg-ink text-white" : "bg-mist text-[#536267]"}`}
+        >
+          AI 设置
+        </button>
+        <button
+          onClick={() => setTab("guide")}
+          className={`rounded-lg px-4 py-2 text-sm font-black ${tab === "guide" ? "bg-ink text-white" : "bg-mist text-[#536267]"}`}
+        >
+          使用说明
+        </button>
+      </div>
 
-      <section className="panel grid gap-4 p-5">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="field">
-            <span className="label">provider</span>
-            <select value={provider} onChange={(event) => chooseProvider(event.target.value)}>
-              {Object.entries(providerDefaults).map(([key, option]) => (
-                <option key={key} value={key}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="label">model</span>
-            <input value={model} onChange={(event) => setModel(event.target.value)} placeholder={selected.model} />
-          </label>
+      {tab === "guide" ? (
+        <UsageGuide />
+      ) : (
+        <div className="grid gap-5">
+          <section className="grid gap-4 md:grid-cols-3">
+            {Object.entries(providerDefaults).map(([key, option]) => (
+              <button
+                key={key}
+                onClick={() => chooseProvider(key)}
+                className={`panel p-4 text-left ${provider === key ? "border-ink ring-2 ring-ink" : ""}`}
+              >
+                <span className="block text-lg font-black">{option.label}</span>
+                <span className="mt-2 block text-sm leading-6 text-[#536267]">{option.hint}</span>
+              </button>
+            ))}
+          </section>
+
+          <section className="panel grid gap-4 p-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="field">
+                <span className="label">provider</span>
+                <select value={provider} onChange={(event) => chooseProvider(event.target.value)}>
+                  {Object.entries(providerDefaults).map(([key, option]) => (
+                    <option key={key} value={key}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">model</span>
+                <input value={model} onChange={(event) => setModel(event.target.value)} placeholder={selected.model} />
+              </label>
+            </div>
+
+            <label className="field">
+              <span className="label">api key {hasApiKey ? "（已保存，可留空不改）" : ""}</span>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder={hasApiKey ? "留空表示沿用已保存的 key" : "粘贴你的 API Key"}
+              />
+            </label>
+
+            <label className="field">
+              <span className="label">base url</span>
+              <input value={baseURL} onChange={(event) => setBaseURL(event.target.value)} placeholder={selected.baseURL || "OpenAI 默认端点可留空"} />
+            </label>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button onClick={save} className="btn-primary">保存 AI 配置</button>
+              {message && <p className="text-sm font-semibold text-[#536267]">{message}</p>}
+            </div>
+          </section>
         </div>
-
-        <label className="field">
-          <span className="label">api key {hasApiKey ? "（已保存，可留空不改）" : ""}</span>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder={hasApiKey ? "留空表示沿用已保存的 key" : "粘贴你的 API Key"}
-          />
-        </label>
-
-        <label className="field">
-          <span className="label">base url</span>
-          <input value={baseURL} onChange={(event) => setBaseURL(event.target.value)} placeholder={selected.baseURL || "OpenAI 默认端点可留空"} />
-        </label>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button onClick={save} className="btn-primary">保存 AI 配置</button>
-          {message && <p className="text-sm font-semibold text-[#536267]">{message}</p>}
-        </div>
-      </section>
+      )}
     </div>
   );
 }
