@@ -40,15 +40,49 @@ const groups: Group[] = [
       { href: "/transcript", label: "录入反馈" },
       { href: "/assessment", label: "学习报告" }
     ]
-  },
-  { label: "设置", items: [{ href: "/settings", label: "AI 设置" }] }
+  }
 ];
 
-export default function Sidebar() {
+const settingsGroup: Group = {
+  label: "设置",
+  items: [{ href: "/settings", label: "AI 设置" }]
+};
+
+function GroupBlock({ g }: { g: Group }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const accent = ACCENT[g.accent ?? "neutral"];
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-2 px-2">
+        <span className="h-4 w-1 rounded-full" style={{ background: accent.solid }} />
+        <span className="text-[15px] font-semibold text-ink">{g.label}</span>
+      </div>
+      <div className="grid gap-0">
+        {g.items.map((it) => {
+          const active = isActive(it.href);
+          return (
+            <Link
+              key={it.href}
+              href={it.href}
+              className={`rounded-lg px-3 py-1 text-[14px] transition-colors ${
+                active
+                  ? "font-semibold text-ink"
+                  : "text-[#536267] hover:bg-[#eef2f3]"
+              }`}
+              style={active ? { background: accent.tint } : undefined}
+            >
+              {it.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
+export default function Sidebar() {
   return (
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-[#e4e9ea] bg-[#fbfcfc] px-5 py-7">
       <Link href="/" className="mb-9 flex items-center gap-2.5 px-1">
@@ -60,49 +94,19 @@ export default function Sidebar() {
         </span>
       </Link>
 
-      <nav className="grid gap-9">
-        {groups.map((g) => {
-          const accent = ACCENT[g.accent ?? "neutral"];
-          return (
-            <div key={g.label}>
-              <div className="mb-1.5 flex items-center gap-2 px-2">
-                <span
-                  className="h-4 w-1 rounded-full"
-                  style={{ background: accent.solid }}
-                />
-                <span className="text-[15px] font-semibold text-ink">
-                  {g.label}
-                </span>
-              </div>
-
-              <div className="grid gap-0.5">
-                {g.items.map((it) => {
-                  const active = isActive(it.href);
-                  return (
-                    <Link
-                      key={it.href}
-                      href={it.href}
-                      className={`rounded-lg px-3 py-1.5 text-[14px] transition-colors ${
-                        active
-                          ? "font-semibold text-ink"
-                          : "text-[#536267] hover:bg-[#eef2f3]"
-                      }`}
-                      style={
-                        active ? { background: accent.tint } : undefined
-                      }
-                    >
-                      {it.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      <nav className="grid gap-12">
+        {groups.map((g) => (
+          <GroupBlock key={g.label} g={g} />
+        ))}
       </nav>
 
-      <div className="mt-auto px-2 pt-8 text-[11px] leading-relaxed text-[#9aa6ab]">
-        学习闭环：材料 → 学习库 → 今日训练 → 反馈 → 回流
+      <div className="mt-auto pt-6">
+        <div className="border-t border-[#e4e9ea] pt-4">
+          <GroupBlock g={settingsGroup} />
+        </div>
+        <p className="mt-4 px-2 text-[11px] leading-relaxed text-[#9aa6ab]">
+          学习闭环：材料 → 学习库 → 今日训练 → 反馈 → 回流
+        </p>
       </div>
     </aside>
   );
