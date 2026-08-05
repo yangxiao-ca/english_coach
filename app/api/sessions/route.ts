@@ -47,8 +47,10 @@ export async function POST(request: Request) {
       if (!itemIds.length) {
         return NextResponse.json({ error: "请先从学习库选择至少一个 item。" }, { status: 400 });
       }
-      // Always commit the explicit selection together with any other staged items, so nothing is left orphaned.
-      const commitIds = unionNumbers(itemIds, stagedIds);
+      // Generate ONLY for the items the page explicitly sent. Items staged but not sent
+      // stay in the pending pool (still visible) instead of being silently pulled in —
+      // otherwise historical items keep accumulating into today's training.
+      const commitIds = itemIds;
       const selectedItems = getItemsByIds(commitIds) as any[];
       if (!selectedItems.length) {
         return NextResponse.json({ error: "没有找到选中的学习库 item。" }, { status: 404 });
@@ -78,8 +80,12 @@ export async function POST(request: Request) {
       if (!existing) {
         return NextResponse.json({ error: "还没有今日训练包可重新生成。" }, { status: 400 });
       }
-      // Explicit overwrite: regenerate the plan for the current binding + any still-staged items.
-      const commitIds = unionNumbers(JSON.parse(existing.target_item_ids || "[]"), stagedIds);
+      // Prefer the exact set the page currently shows (explicit item_ids). Fall back to
+      // the current binding + staged only when the page did not send a set.
+      const sentIds = (body.item_ids || []).map((id: string | number) => Number(id)).filter(Boolean);
+      const commitIds = sentIds.length
+        ? sentIds
+        : unionNumbers(JSON.parse(existing.target_item_ids || "[]"), stagedIds);
       const items = getItemsByIds(commitIds) as any[];
       const plan = await generateSessionPlan(items);
       const sessionId = createStudySession(plan, commitIds);
@@ -97,6 +103,8 @@ export async function POST(request: Request) {
         items: getItemsByIds(itemIds)
       });
     }
+    // Auto-generate from due review items ONLY. Staged items are user-curated and are
+    // committed via selected_ai / regenerate, never silently pulled into auto-generation.
     const items = getDueSessionItems(8);
     if (!items.length) {
       const counts = getItemStatusCounts();
@@ -111,12 +119,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    // Commit the auto-selected items together with any staged items, so staged ones are not orphaned.
-    const commitIds = unionNumbers(
-      items.map((item: any) => item.id),
-      stagedIds
-    );
-    const plan = await generateSessionPlan(getItemsByIds(commitIds) as any[]);
+    const commitIds = items.map((item: any) => item.id);
+    const plan = await generateSessionPlan(items as any[]);
     const sessionId = createStudySession(plan, commitIds);
     return NextResponse.json({ sessionId, plan, items: getItemsByIds(commitIds) });
   } catch (error: any) {

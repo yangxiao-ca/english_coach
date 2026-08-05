@@ -43,6 +43,7 @@ export default function SessionPage() {
   }, []);
 
   // Single reload path: rebuild every view from the authoritative today endpoint.
+  // Returns the parsed payload so callers can message based on fresh data (state updates are async).
   async function refreshToday() {
     const todayRes = await fetch("/api/sessions/today");
     const todayData = await todayRes.json();
@@ -58,21 +59,29 @@ export default function SessionPage() {
       setCommittedItems([]);
     }
     setPendingItems(todayData.pending ?? []);
+    return todayData;
   }
 
   async function loadTodayPackage() {
     setBusy(true);
     setError("");
     setMessage("正在读取今日学习信息...");
-    await refreshToday();
-    if (!sessionId && pendingItems.length) {
+    const todayData = await refreshToday();
+    const hasSession = Boolean(todayData.session);
+    const pending = todayData.pending ?? [];
+    if (!hasSession && pending.length) {
       setMessage("你已选好今日学习词条。确认后即可由 AI 生成今日训练内容；不需要的可以先退回学习库。");
-    } else if (!sessionId && !pendingItems.length) {
+    } else if (!hasSession && !pending.length) {
       setMessage("还没有选好的今日学习词条。请先去学习库把 item 加入「今日学习」，再到这里生成训练内容；也可以直接在这里从到期复习中 AI 生成，或创建空白学习包。");
     } else {
       setMessage("已加载今日学习包。你可以调整内容、删减词条，或清空后重新生成。");
     }
     setBusy(false);
+  }
+
+  // The exact set of words the page currently shows = what generation must include.
+  function pageItemIds(): number[] {
+    return Array.from(new Set([...committedItems, ...pendingItems].map((i) => Number(i.id))));
   }
 
   // Context-aware (re)generate: staged -> generate from staged; none staged & no session -> due; session exists -> regenerate.
@@ -91,7 +100,7 @@ export default function SessionPage() {
         const res = await fetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "regenerate" })
+          body: JSON.stringify({ mode: "regenerate", item_ids: pageItemIds() })
         });
         const data = await res.json();
         setBusy(false);

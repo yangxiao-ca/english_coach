@@ -347,41 +347,33 @@ export function ensureReviewSchedule(itemId: number) {
 
 export function getDueSessionItems(limit = 8) {
   const database = getDb();
-  const today = database
-    .prepare(
-      `SELECT li.*, rs.next_review_at, rs.mastery_level, rs.speaking_activation_level
-       FROM learning_items li
-       LEFT JOIN review_schedules rs ON rs.learning_item_id = li.id
-       WHERE li.status = 'today'
-       ORDER BY li.created_at DESC
-       LIMIT ?`
-    )
-    .all(limit);
-  if (today.length >= limit) return today;
+  // Auto-generation source: due-review items first, then newest active items.
+  // Staged (status='today') items are deliberately NOT included here — they are
+  // user-curated on the page and committed via selected_ai/regenerate, so
+  // historical leftovers never leak into auto-generation.
   const due = database
     .prepare(
       `SELECT li.*, rs.next_review_at, rs.mastery_level, rs.speaking_activation_level
        FROM learning_items li
        JOIN review_schedules rs ON rs.learning_item_id = li.id
        WHERE li.status = 'active'
-       AND li.id NOT IN (${today.map(() => "?").join(",") || "0"})
        AND (rs.next_review_at IS NULL OR date(rs.next_review_at) <= date('now'))
        ORDER BY rs.next_review_at ASC, rs.wrong_count DESC
        LIMIT ?`
     )
-    .all(...today.map((item: any) => item.id), limit - today.length);
-  if (today.length + due.length >= limit) return [...today, ...due];
+    .all(limit);
+  if (due.length >= limit) return due;
   const fresh = database
     .prepare(
       `SELECT li.*, rs.next_review_at, rs.mastery_level, rs.speaking_activation_level
        FROM learning_items li
        LEFT JOIN review_schedules rs ON rs.learning_item_id = li.id
-       WHERE li.status = 'active' AND li.id NOT IN (${[...today, ...due].map(() => "?").join(",") || "0"})
+       WHERE li.status = 'active' AND li.id NOT IN (${due.map(() => "?").join(",") || "0"})
        ORDER BY li.created_at DESC
        LIMIT ?`
     )
-    .all(...[...today, ...due].map((item: any) => item.id), limit - today.length - due.length);
-  return [...today, ...due, ...fresh];
+    .all(...due.map((item: any) => item.id), limit - due.length);
+  return [...due, ...fresh];
 }
 
 export function createStudySession(plan: SessionPlan, itemIds: number[]) {
