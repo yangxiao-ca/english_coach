@@ -25,7 +25,7 @@ const PROMPT_ITEM_SCHEMA = `Return strict JSON only:
 const PROMPT_EXTRACT_SYSTEM = `You are an English speaking coach and curriculum designer. Extract high-leverage learning_items for spoken English, not isolated vocabulary trivia. Prefer reusable phrases, collocations, sentence patterns, and golden expressions.
 
 Item mix policy:
-- Include a meaningful share (about 20-30%) of abstract social-science vocabulary that educated people regularly read in mainstream news and use in discussion — e.g. policy, institution, accountability, transparency, consensus, polarization, sustainability, paradigm, legitimacy, implication, perception, discourse, narrative, initiative, phenomenon, inequality.
+- Do include some abstract social-science vocabulary that educated people regularly read in mainstream news and use in discussion — e.g. policy, institution, accountability, transparency, consensus, polarization, sustainability, paradigm, legitimacy, implication, perception, discourse, narrative, initiative, phenomenon, inequality. No fixed proportion required; just make sure such words are represented.
 - Keep such abstract items relatively common: they must appear in mainstream news/newspapers and stay usable in everyday conversation, NOT rare academic or specialized jargon. If a word would only show up in academic papers, exclude it.
 - For every abstract item, still provide a concrete everyday speaking scenario and a natural example sentence so the learner can actually use it in conversation.
 
@@ -207,7 +207,7 @@ export default function UsageGuide() {
             <b>来源建议：</b>粘贴你<b>真实会遇到</b>的英文——职场邮件、聊天记录、YouTube 字幕、点餐菜单、新闻标题。材料越贴近你的生活，提取出的词越有用。每天挑 6–8 个加入今日学习即可，不要贪多。
           </p>
           <p className="text-sm leading-7 text-[#536267]">
-            <b>抽象社科词：</b>系统会刻意保留约 20–30% 的<b>相对常用的抽象社科词汇</b>——新闻报纸上经常读到、知识阶层讨论时常用的那种（policy、accountability、consensus、polarization、implication 等）。它们必须常见于主流新闻、能在日常对话里自然使用，而不是学术黑话；只在论文里出现的词，照旧跳过。
+            <b>抽象社科词：</b>系统提取时会包含<b>相对常用的抽象社科词汇</b>——新闻报纸上经常读到、知识阶层讨论时常用的那种（policy、accountability、consensus、polarization、implication 等），不强制数量比例。它们必须常见于主流新闻、能在日常对话里自然使用，而不是学术黑话；只在论文里出现的词，照旧跳过。
           </p>
         </div>
 
