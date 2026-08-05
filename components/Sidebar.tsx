@@ -45,7 +45,10 @@ const groups: Group[] = [
 
 const settingsGroup: Group = {
   label: "设置",
-  items: [{ href: "/settings", label: "AI 设置" }]
+  items: [
+    { href: "/settings", label: "AI 设置" },
+    { href: "/settings?tab=guide", label: "使用说明" }
+  ]
 };
 
 function GroupBlock({ g }: { g: Group }) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import UsageGuide from "@/components/UsageGuide";
 
 const providerDefaults: Record<string, { label: string; model: string; baseURL: string; hint: string }> = {
@@ -25,6 +26,16 @@ const providerDefaults: Record<string, { label: string; model: string; baseURL: 
 };
 
 export default function SettingsPage() {
+  return (
+    <Suspense>
+      <SettingsInner />
+    </Suspense>
+  );
+}
+
+function SettingsInner() {
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
   const [tab, setTab] = useState<"ai" | "guide">("ai");
   const [provider, setProvider] = useState("deepseek");
   const [apiKey, setApiKey] = useState("");
@@ -45,6 +56,19 @@ export default function SettingsPage() {
         setHasApiKey(settings.hasApiKey);
       });
   }, []);
+
+  // Keep tab in sync with ?tab=guide from the sidebar「使用说明」link.
+  useEffect(() => {
+    setTab(tabFromUrl === "guide" ? "guide" : "ai");
+  }, [tabFromUrl]);
+
+  function switchTab(next: "ai" | "guide") {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === "guide") url.searchParams.set("tab", "guide");
+    else url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url.toString());
+  }
 
   function chooseProvider(nextProvider: string) {
     const next = providerDefaults[nextProvider];
@@ -76,13 +100,13 @@ export default function SettingsPage() {
 
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => setTab("ai")}
+          onClick={() => switchTab("ai")}
           className={`rounded-lg px-4 py-2 text-sm font-black ${tab === "ai" ? "bg-ink text-white" : "bg-mist text-[#536267]"}`}
         >
           AI 设置
         </button>
         <button
-          onClick={() => setTab("guide")}
+          onClick={() => switchTab("guide")}
           className={`rounded-lg px-4 py-2 text-sm font-black ${tab === "guide" ? "bg-ink text-white" : "bg-mist text-[#536267]"}`}
         >
           使用说明
