@@ -89,7 +89,14 @@ export async function extractItemsFromMaterial(input: {
   purpose: string;
   content: string;
 }) {
-  const system = `You are an English speaking coach and curriculum designer. Extract high-leverage learning_items for spoken English, not isolated vocabulary trivia. Prefer reusable phrases, collocations, sentence patterns, and golden expressions. ${itemSchema}`;
+  const system = `You are an English speaking coach and curriculum designer. Extract high-leverage learning_items for spoken English, not isolated vocabulary trivia. Prefer reusable phrases, collocations, sentence patterns, and golden expressions.
+
+Item mix policy:
+- Include a meaningful share (about 20-30%) of abstract social-science vocabulary that educated people regularly read in mainstream news and use in discussion — e.g. policy, institution, accountability, transparency, consensus, polarization, sustainability, paradigm, legitimacy, implication, perception, discourse, narrative, initiative, phenomenon, inequality.
+- Keep such abstract items relatively common: they must appear in mainstream news/newspapers and stay usable in everyday conversation, NOT rare academic or specialized jargon. If a word would only show up in academic papers, exclude it.
+- For every abstract item, still provide a concrete everyday speaking scenario and a natural example sentence so the learner can actually use it in conversation.
+
+${itemSchema}`;
   const user = `Material title: ${input.title}
 Topic: ${input.topic}
 Difficulty: ${input.difficulty}
