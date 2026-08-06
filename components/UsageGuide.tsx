@@ -38,6 +38,7 @@ Learner purpose: {purpose}
 Material:
 {content}
 
+{extra_requirements}
 Choose 8-15 items that are useful for speaking practice.`;
 
 // 提示词 1b：AI 直接生成一段材料并产出词条（POST /api/materials/generate）
@@ -290,9 +291,15 @@ export default function UsageGuide() {
           <h3 className="text-lg font-black">5.1 从材料里 AI 生成学习词条</h3>
           <p className="text-sm leading-7 text-[#536267]">
             <b>触发位置：</b>学习库 → 添加材料 → 「粘贴材料」页。前端把表单内容发给 <code className="rounded bg-mist px-1 font-mono text-xs">POST /api/materials/extract</code>，
-            请求体为 <code className="rounded bg-mist px-1 font-mono text-xs">{"{ title, topic, difficulty, purpose, content }"}</code>；
+            请求体为 <code className="rounded bg-mist px-1 font-mono text-xs">{"{ title, topic, difficulty, purpose, content, extraRequirements? }"}</code>；
             后端调用 lib/llm.ts 的 <code className="rounded bg-mist px-1 font-mono text-xs">extractItemsFromMaterial()</code>，用你配置的模型 + temperature 0.35 + JSON 输出，
             提取 8–15 个词条后以「候选」状态写入 learning_items（之后你去「待审」里把关）。
+          </p>
+          <p className="text-sm leading-7 text-[#536267]">
+            <b>临时要求（一次性）：</b>表单底部的「临时要求（可选）」输入框只对<b>本次提取</b>生效——填的内容会以
+            &quot;Additional one-off requirements for this extraction (follow these strictly):&quot; 拼进下方的 User Prompt
+            （即 <code className="rounded bg-mist px-1 font-mono text-xs">{"{extra_requirements}"}</code> 占位符），
+            例如「多提取一些商务谈判相关的表达」「这次不提取太口语化的词」。它不保存、不影响后续提取。
           </p>
           <CodeBlock title="System Prompt（角色 + 指令 + 输出约束）" text={PROMPT_EXTRACT_SYSTEM} />
           <CodeBlock title="User Prompt（每次调用时用真实值替换 {占位符}）" text={PROMPT_EXTRACT_USER} />

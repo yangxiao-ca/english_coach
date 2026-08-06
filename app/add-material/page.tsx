@@ -9,7 +9,8 @@ function PasteForm() {
     topic: "",
     difficulty: "B1",
     purpose: "",
-    content: ""
+    content: "",
+    extraRequirements: ""
   });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,6 +50,14 @@ function PasteForm() {
         <textarea
           value={form.content}
           onChange={(e) => setForm({ ...form, content: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span className="label">临时要求（可选，仅本次提取生效）</span>
+        <textarea
+          value={form.extraRequirements}
+          onChange={(e) => setForm({ ...form, extraRequirements: e.target.value })}
+          placeholder="例如：多提取一些商务谈判相关的表达；这次不提取太口语化的词；重点围绕环境话题"
         />
       </label>
       <button disabled={busy} onClick={submit} className="btn-primary w-fit">

@@ -88,6 +88,7 @@ export async function extractItemsFromMaterial(input: {
   difficulty: string;
   purpose: string;
   content: string;
+  extraRequirements?: string;
 }) {
   const system = `You are an English speaking coach and curriculum designer. Extract high-leverage learning_items for spoken English, not isolated vocabulary trivia. Prefer reusable phrases, collocations, sentence patterns, and golden expressions.
 
@@ -105,7 +106,11 @@ Learner purpose: ${input.purpose}
 Material:
 ${input.content}
 
-Choose 8-15 items that are useful for speaking practice.`;
+${
+  input.extraRequirements
+    ? `Additional one-off requirements for this extraction (follow these strictly):\n${input.extraRequirements}\n\n`
+    : ""
+}Choose 8-15 items that are useful for speaking practice.`;
   const result = await jsonCall<{ items: LearningItemInput[] }>(system, user);
   return result.items;
 }
