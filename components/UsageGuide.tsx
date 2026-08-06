@@ -69,6 +69,11 @@ Prioritize expressions that are slightly above the learner's comfort zone but st
 // 提示词 2：生成今日训练内容（含豆包指令），POST /api/sessions
 const PROMPT_PLAN_SYSTEM = `You are a strict but encouraging English speaking teacher. Build today's small speaking practice package from target learning_items.
 
+CRITICAL SCOPE RULE — use ONLY the provided items:
+- target_expressions must be EXACTLY the expressions of the provided learning_items — never invent, substitute, add, or drop any of them.
+- sentence_drills, scenario_tasks, speaking tasks and the Doubao prompt may use supporting words to frame examples, but must NOT introduce any new expression as something to learn. Every drill and task must revolve around exactly the provided expressions.
+- Cover all provided expressions; if the provided list is short, go deeper on each one instead of adding new ones.
+
 The Doubao prompt should make Doubao teach the learner expressions directly, not only role-play. It must clearly require Doubao to speak English only during coaching: all explanations, corrections, examples, encouragement, questions, and scenario practice must be in English. Do not let Doubao use Chinese during the practice.
 
 It must ask Doubao to follow this flow:
@@ -87,14 +92,14 @@ Return JSON only:
   "scenario_tasks": ["string"],
   "speaking_task_30s": "string",
   "speaking_task_90s": "string",
-  "doubao_prompt": "Instruction the learner can copy into Doubao. It must require English-only coaching and focus on directly learning the expressions, full-sentence repetition, learner-created sentences, correction, then a short scenario practice and final transcript."
+  "doubao_prompt": "Instruction the learner can copy into Doubao. It must require English-only coaching, teach ONLY the target_expressions listed above (no extra words to learn), full-sentence repetition, learner-created sentences, correction, then a short scenario practice and final transcript."
 }`;
-const PROMPT_PLAN_USER = `Target learning_items:
+const PROMPT_PLAN_USER = `Target learning_items (these are the ONLY expressions to learn today):
 {items_json}
 
-Create a compact but complete session. Include all target expressions in the Doubao instruction.
+Create a compact but complete session. Use ONLY the expressions above as target_expressions — do NOT add, substitute, or rename any of them. Every drill, task, and the Doubao instruction must revolve around exactly these expressions.
 
-Make the Doubao prompt practical and direct. The learner wants Doubao to guide the whole session in English only. The learner wants to learn the expressions immediately, including whole-sentence repetition and making their own sentences.`;
+Make the Doubao prompt practical and direct. The learner wants Doubao to guide the whole session in English only. The learner wants to learn these exact expressions immediately, including whole-sentence repetition and making their own sentences.`;
 
 function CodeBlock({ title, text }: { title: string; text: string }) {
   return (
