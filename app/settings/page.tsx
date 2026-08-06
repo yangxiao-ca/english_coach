@@ -43,6 +43,9 @@ function SettingsInner() {
   const [baseURL, setBaseURL] = useState(providerDefaults.deepseek.baseURL);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [message, setMessage] = useState("");
+  // 已保存并正在生效的配置（区别于表单临时选择）
+  const [activeProvider, setActiveProvider] = useState("deepseek");
+  const [activeModel, setActiveModel] = useState(providerDefaults.deepseek.model);
   const selected = useMemo(() => providerDefaults[provider] || providerDefaults.deepseek, [provider]);
 
   useEffect(() => {
@@ -54,6 +57,8 @@ function SettingsInner() {
         setModel(settings.model);
         setBaseURL(settings.baseURL);
         setHasApiKey(settings.hasApiKey);
+        setActiveProvider(settings.provider);
+        setActiveModel(settings.model);
       });
   }, []);
 
@@ -88,6 +93,8 @@ function SettingsInner() {
     if (res.ok) {
       setHasApiKey(hasApiKey || Boolean(apiKey));
       setApiKey("");
+      setActiveProvider(provider);
+      setActiveModel(model);
     }
   }
 
@@ -117,17 +124,49 @@ function SettingsInner() {
         <UsageGuide />
       ) : (
         <div className="grid gap-5">
+          {/* 当前正在生效的配置（已保存），区别于表单临时选择 */}
+          <div className="panel grid gap-1 border-[#6E8B7E]/40 bg-[#eaf0ed] p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-[#5f7d4f]">当前正在使用</p>
+            <p className="text-base font-black text-ink">
+              {providerDefaults[activeProvider]?.label || activeProvider}
+              <span className="ml-2 rounded bg-[#5f7d4f] px-2 py-0.5 font-mono text-xs font-bold text-white">
+                {activeModel || "（未配置模型）"}
+              </span>
+            </p>
+            <p className="text-xs leading-5 text-[#536267]">
+              {providerDefaults[activeProvider]?.hint || ""} · 下方改动需点「保存 AI 配置」才会生效
+            </p>
+          </div>
+
           <section className="grid gap-4 md:grid-cols-3">
-            {Object.entries(providerDefaults).map(([key, option]) => (
-              <button
-                key={key}
-                onClick={() => chooseProvider(key)}
-                className={`panel p-4 text-left ${provider === key ? "border-ink ring-2 ring-ink" : ""}`}
-              >
-                <span className="block text-lg font-black">{option.label}</span>
-                <span className="mt-2 block text-sm leading-6 text-[#536267]">{option.hint}</span>
-              </button>
-            ))}
+            {Object.entries(providerDefaults).map(([key, option]) => {
+              const isSelected = provider === key;
+              const isActive = activeProvider === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => chooseProvider(key)}
+                  className={`panel p-4 text-left ${isSelected ? "border-ink ring-2 ring-ink" : ""}`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="block text-lg font-black">{option.label}</span>
+                    {isSelected && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-black text-white ${
+                          isActive ? "bg-[#5f7d4f]" : "bg-ink"
+                        }`}
+                      >
+                        {isActive ? "使用中 ✓" : "已选"}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-2 block text-sm leading-6 text-[#536267]">{option.hint}</span>
+                  {isActive && isSelected && (
+                    <span className="mt-2 block font-mono text-xs text-[#5f7d4f]">model: {activeModel}</span>
+                  )}
+                </button>
+              );
+            })}
           </section>
 
           <section className="panel grid gap-4 p-5">
