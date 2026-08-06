@@ -19,6 +19,14 @@ function unionNumbers(...lists: number[][]): number[] {
   return Array.from(new Set(lists.flat().map((id) => Number(id))));
 }
 
+// Generation style from the page: "items" (default) or "scenario" coach.
+function planOpts(body: any) {
+  return {
+    mode: body.plan_mode === "scenario" ? ("scenario" as const) : ("items" as const),
+    scenario: typeof body.scenario === "string" && body.scenario.trim() ? body.scenario : undefined
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -55,7 +63,7 @@ export async function POST(request: Request) {
       if (!selectedItems.length) {
         return NextResponse.json({ error: "没有找到选中的学习库 item。" }, { status: 404 });
       }
-      const plan = await generateSessionPlan(selectedItems);
+      const plan = await generateSessionPlan(selectedItems, planOpts(body));
       const sessionId = createStudySession(plan, commitIds);
       return NextResponse.json({ sessionId, plan, items: selectedItems });
     }
@@ -87,7 +95,7 @@ export async function POST(request: Request) {
         ? sentIds
         : unionNumbers(JSON.parse(existing.target_item_ids || "[]"), stagedIds);
       const items = getItemsByIds(commitIds) as any[];
-      const plan = await generateSessionPlan(items);
+      const plan = await generateSessionPlan(items, planOpts(body));
       const sessionId = createStudySession(plan, commitIds);
       return NextResponse.json({ sessionId, plan, items });
     }
@@ -120,7 +128,7 @@ export async function POST(request: Request) {
       );
     }
     const commitIds = items.map((item: any) => item.id);
-    const plan = await generateSessionPlan(items as any[]);
+    const plan = await generateSessionPlan(items as any[], planOpts(body));
     const sessionId = createStudySession(plan, commitIds);
     return NextResponse.json({ sessionId, plan, items: getItemsByIds(commitIds) });
   } catch (error: any) {

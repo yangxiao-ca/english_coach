@@ -149,8 +149,8 @@ Prioritize expressions that are slightly above the learner's comfort zone but st
   return result.items;
 }
 
-export async function generateSessionPlan(items: any[]): Promise<SessionPlan> {
-  const system = `You are a strict but encouraging English speaking teacher. Build today's small speaking practice package from target learning_items.
+// Mode "items": classic expression-training coach (default).
+const SESSION_SYSTEM_ITEMS = `You are a strict but encouraging English speaking teacher. Build today's small speaking practice package from target learning_items.
 
 CRITICAL SCOPE RULE — use ONLY the provided items:
 - target_expressions must be EXACTLY the expressions of the provided learning_items — never invent, substitute, add, or drop any of them.
@@ -177,13 +177,69 @@ Return JSON only:
   "speaking_task_90s": "string",
   "doubao_prompt": "Instruction the learner can copy into Doubao. It must require English-only coaching, teach ONLY the target_expressions listed above (no extra words to learn), full-sentence repetition, learner-created sentences, correction, then a short scenario practice and final transcript."
 }`;
-  const user = `Target learning_items (these are the ONLY expressions to learn today):
+
+// Mode "scenario": everyday-life scenario coach (user's 6-step lesson structure).
+const SESSION_SYSTEM_SCENARIO = `You are a friendly, patient English speaking coach for an intermediate learner who wants to improve spoken English for everyday life in the United States.
+
+The learner's main goals:
+- learning new, natural expressions, sentence patterns, and useful vocabulary;
+- speaking more fluently in practical situations, such as returning products, making polite complaints, calling customer service, ordering food, and handling everyday matters;
+- moving beyond basic phrases and using more flexible, natural English.
+
+CRITICAL SCOPE RULE — teach ONLY the provided items:
+- The 5-8 expressions taught in this session must come EXACTLY from the provided learning_items. Never invent, substitute, add, or drop any of them. If fewer than 5 items are provided, teach exactly those and go deeper on each.
+- Drills, the role-play dialogue and the Doubao prompt may use supporting words to make the scenario natural, but must NOT introduce any new expression as something to learn.
+
+Build the Doubao prompt with this lesson structure:
+1. Choose one practical situation (use the requested scenario).
+2. Teach 5-8 useful expressions and explain them briefly.
+3. Let the learner repeat and make their own sentences.
+4. Role-play the situation with the learner.
+5. Correct mistakes gently. Explain the most important correction, but do not interrupt too often.
+6. After the lesson, give a written review note with:
+   - new phrases and vocabulary;
+   - the learner's mistakes and corrected versions;
+   - short explanations;
+   - a model response;
+   - a small practice task for next time.
+
+Doubao must speak English only during coaching: all explanations, corrections, examples, encouragement, questions, and role-play must be in English. Speak clearly at a moderate speed. If the learner says "Please repeat," repeat the sentence more slowly. Encourage complete sentences, but give the learner time to think before responding.
+
+Return JSON only:
+{
+  "title": "string",
+  "target_expressions": ["string"],
+  "sentence_drills": ["string"],
+  "scenario_tasks": ["string"],
+  "speaking_task_30s": "string",
+  "speaking_task_90s": "string",
+  "doubao_prompt": "Instruction the learner can copy into Doubao: a scenario coach following the 6-step structure above, teaching ONLY the target_expressions, English-only, role-play, and ending with a written review note."
+}`;
+
+function sessionUserPrompt(items: any[], mode: "items" | "scenario", scenario?: string) {
+  if (mode === "scenario") {
+    return `Target learning_items (the ONLY expressions to teach — these are the 5-8 expressions for step 2):
+${JSON.stringify(items, null, 2)}
+
+Today's practical situation to practice: ${scenario || "a common everyday situation in the United States"}
+
+Build a complete session following the 6-step structure. scenario_tasks should contain the role-play setup; doubao_prompt must be the full coach instruction the learner can copy into Doubao.`;
+  }
+  return `Target learning_items (these are the ONLY expressions to learn today):
 ${JSON.stringify(items, null, 2)}
 
 Create a compact but complete session. Use ONLY the expressions above as target_expressions — do NOT add, substitute, or rename any of them. Every drill, task, and the Doubao instruction must revolve around exactly these expressions.
 
 Make the Doubao prompt practical and direct. The learner wants Doubao to guide the whole session in English only. The learner wants to learn these exact expressions immediately, including whole-sentence repetition and making their own sentences.`;
-  const plan = await jsonCall<SessionPlan>(system, user);
+}
+
+export async function generateSessionPlan(
+  items: any[],
+  opts: { mode?: "items" | "scenario"; scenario?: string } = {}
+): Promise<SessionPlan> {
+  const mode = opts.mode === "scenario" ? "scenario" : "items";
+  const system = mode === "scenario" ? SESSION_SYSTEM_SCENARIO : SESSION_SYSTEM_ITEMS;
+  const plan = await jsonCall<SessionPlan>(system, sessionUserPrompt(items, mode, opts.scenario));
   // Hard guarantee: target list is exactly the provided items, no matter what the model returns.
   plan.target_expressions = Array.from(new Set(items.map((item: any) => item.expression)));
   return plan;
