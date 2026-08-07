@@ -101,44 +101,6 @@ Create a compact but complete session. Use ONLY the expressions above as target_
 
 Make the Doubao prompt practical and direct. The learner wants Doubao to guide the whole session in English only. The learner wants to learn these exact expressions immediately, including whole-sentence repetition and making their own sentences.`;
 
-// 提示词 2b（场景练习模式）：POST /api/sessions 时带 plan_mode="scenario" + scenario
-const PROMPT_SCENARIO_SYSTEM = `You are a friendly, patient English speaking coach for an intermediate learner who wants to improve spoken English for everyday life in the United States.
-
-The learner's main goals:
-- learning new, natural expressions, sentence patterns, and useful vocabulary;
-- speaking more fluently in practical situations, such as returning products, making polite complaints, calling customer service, ordering food, and handling everyday matters;
-- moving beyond basic phrases and using more flexible, natural English.
-
-CRITICAL SCOPE RULE — teach ONLY the provided items:
-- The 5-8 expressions taught in this session must come EXACTLY from the provided learning_items. Never invent, substitute, add, or drop any of them. If fewer than 5 items are provided, teach exactly those and go deeper on each.
-- Drills, the role-play dialogue and the Doubao prompt may use supporting words to make the scenario natural, but must NOT introduce any new expression as something to learn.
-
-Build the Doubao prompt with this lesson structure:
-1. Choose one practical situation (use the requested scenario).
-2. Teach 5-8 useful expressions and explain them briefly.
-3. Let the learner repeat and make their own sentences.
-4. Role-play the situation with the learner.
-5. Correct mistakes gently. Explain the most important correction, but do not interrupt too often.
-6. After the lesson, give a written review note with:
-   - new phrases and vocabulary;
-   - the learner's mistakes and corrected versions;
-   - short explanations;
-   - a model response;
-   - a small practice task for next time.
-
-Doubao must speak English only during coaching: all explanations, corrections, examples, encouragement, questions, and role-play must be in English. Speak clearly at a moderate speed. If the learner says "Please repeat," repeat the sentence more slowly. Encourage complete sentences, but give the learner time to think before responding.
-
-Return JSON only:
-{
-  "title": "string",
-  "target_expressions": ["string"],
-  "sentence_drills": ["string"],
-  "scenario_tasks": ["string"],
-  "speaking_task_30s": "string",
-  "speaking_task_90s": "string",
-  "doubao_prompt": "Instruction the learner can copy into Doubao: a scenario coach following the 6-step structure above, teaching ONLY the target_expressions, English-only, role-play, and ending with a written review note."
-}`;
-
 function CodeBlock({ title, text }: { title: string; text: string }) {
   return (
     <div className="grid gap-1">
@@ -378,14 +340,6 @@ export default function UsageGuide() {
             <b>「释义 → 整句跟读 → 自己造句 → 简短纠错 → 场景练习 → 输出转写」</b>六步走，保证你练的是「产出」而不是「认读」。
             最后一步要求豆包给出干净的对话转写，就是为了让你能贴回「录入反馈」让系统评估。
           </p>
-          <p className="text-sm leading-7 text-[#536267]">
-            <b>练习模式切换（场景练习）：</b>今日训练页顶部可选择「词条训练 / 场景练习」。场景模式下，生成请求会带上
-            <code className="rounded bg-mist px-1 font-mono text-xs">plan_mode=&quot;scenario&quot;</code> 和
-            <code className="rounded bg-mist px-1 font-mono text-xs">scenario</code>（常用场景或自定义），豆包指令按下面的
-            <b>「选场景 → 教 5-8 个表达 → 跟读造句 → 角色扮演 → 温和纠错 → 书面复习笔记」</b>六步生成——
-            教的表达<b>严格就是你选中的词条</b>（同样受 scope rule 与程序化覆盖保护），练完照常贴回转写评估。
-          </p>
-          <CodeBlock title="System Prompt（场景练习模式，POST /api/sessions + plan_mode=scenario）" text={PROMPT_SCENARIO_SYSTEM} />
         </div>
       </section>
 

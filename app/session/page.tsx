@@ -22,17 +22,6 @@ const emptyPlan: Plan = {
   doubao_prompt: ""
 };
 
-const SCENARIO_PRESETS = [
-  { value: "returning a product to a store", label: "商店退货" },
-  { value: "making a polite complaint", label: "礼貌投诉" },
-  { value: "calling customer service", label: "打客服电话" },
-  { value: "ordering food at a restaurant", label: "餐厅点餐" },
-  { value: "making a reservation", label: "预订 / 预约" },
-  { value: "asking for directions", label: "问路" },
-  { value: "checking out at a grocery store", label: "超市结账" },
-  { value: "small talk with a coworker", label: "和同事闲聊" }
-];
-
 export default function SessionPage() {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,9 +34,6 @@ export default function SessionPage() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [canActivateCandidates, setCanActivateCandidates] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [planMode, setPlanMode] = useState<"items" | "scenario">("items");
-  const [scenarioPreset, setScenarioPreset] = useState(SCENARIO_PRESETS[0].value);
-  const [scenarioCustom, setScenarioCustom] = useState("");
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -98,16 +84,6 @@ export default function SessionPage() {
     return Array.from(new Set([...committedItems, ...pendingItems].map((i) => Number(i.id))));
   }
 
-  function effectiveScenario(): string {
-    return scenarioCustom.trim() || scenarioPreset;
-  }
-
-  function planParams() {
-    return planMode === "scenario"
-      ? { plan_mode: "scenario" as const, scenario: effectiveScenario() }
-      : { plan_mode: "items" as const };
-  }
-
   // Context-aware (re)generate: staged -> generate from staged; none staged & no session -> due; session exists -> regenerate.
   async function generate() {
     setBusy(true);
@@ -124,7 +100,7 @@ export default function SessionPage() {
         const res = await fetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "regenerate", item_ids: pageItemIds(), ...planParams() })
+          body: JSON.stringify({ mode: "regenerate", item_ids: pageItemIds() })
         });
         const data = await res.json();
         setBusy(false);
@@ -141,11 +117,7 @@ export default function SessionPage() {
         const res = await fetch("/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "selected_ai",
-            item_ids: pendingItems.map((i) => i.id),
-            ...planParams()
-          })
+          body: JSON.stringify({ mode: "selected_ai", item_ids: pendingItems.map((i) => i.id) })
         });
         const data = await res.json();
         setBusy(false);
@@ -158,11 +130,7 @@ export default function SessionPage() {
         return;
       }
       setMessage("AI 正在生成今日学习包...");
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(planParams())
-      });
+      const res = await fetch("/api/sessions", { method: "POST" });
       const data = await res.json();
       setBusy(false);
       if (!res.ok) {
@@ -360,51 +328,6 @@ export default function SessionPage() {
       </div>
 
       {message && <div className="panel p-4 text-sm font-semibold text-[#536267]">{message}</div>}
-
-      {/* 练习模式：词条训练 / 场景练习 */}
-      <div className="panel grid gap-3 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-black text-[#536267]">练习模式</span>
-          <button
-            onClick={() => setPlanMode("items")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-black ${planMode === "items" ? "bg-ink text-white" : "bg-mist text-[#536267]"}`}
-          >
-            词条训练
-          </button>
-          <button
-            onClick={() => setPlanMode("scenario")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-black ${planMode === "scenario" ? "bg-ink text-white" : "bg-mist text-[#536267]"}`}
-          >
-            场景练习
-          </button>
-        </div>
-        {planMode === "scenario" && (
-          <>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="field">
-                <span className="label">常用场景</span>
-                <select value={scenarioPreset} onChange={(e) => setScenarioPreset(e.target.value)}>
-                  {SCENARIO_PRESETS.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">自定义场景（可选，优先于常用场景）</span>
-                <input
-                  value={scenarioCustom}
-                  onChange={(e) => setScenarioCustom(e.target.value)}
-                  placeholder="e.g. disputing a parking ticket"
-                />
-              </label>
-            </div>
-            <p className="text-xs leading-5 text-[#536267]">
-              场景练习：豆包按「选场景 → 教 5-8 个表达 → 跟读造句 → 角色扮演 → 温和纠错 → 书面复习笔记」六步带你练；
-              教的表达<b>严格就是你选中的词条</b>，练完把转写贴回「录入反馈」照常评估。
-            </p>
-          </>
-        )}
-      </div>
 
       {error && (
         <div className="panel grid gap-3 border-[#efc8c2] bg-[#fff7f5] p-4 text-sm font-semibold text-[#a33d33]">
