@@ -13,6 +13,12 @@ export const mistakeTypes = [
 export type LearningItemType = (typeof itemTypes)[number];
 export type UsageStatus = (typeof usageStatuses)[number];
 
+// 同义/近义/可替换表达：词汇、短语或句式
+export type Synonym = {
+  text: string;
+  type?: "word" | "phrase" | "sentence_pattern";
+};
+
 export type LearningItemInput = {
   expression: string;
   type: LearningItemType;
@@ -27,6 +33,7 @@ export type LearningItemInput = {
   speaking_usefulness_score: number;
   business_relevance_score: number;
   personal_relevance_score: number;
+  synonyms?: Synonym[];
 };
 
 export type SessionPlan = {

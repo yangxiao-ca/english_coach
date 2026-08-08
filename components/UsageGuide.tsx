@@ -16,7 +16,8 @@ const PROMPT_ITEM_SCHEMA = `Return strict JSON only:
       "ai_value_score": 1-5,
       "speaking_usefulness_score": 1-5,
       "business_relevance_score": 1-5,
-      "personal_relevance_score": 1-5
+      "personal_relevance_score": 1-5,
+      "synonyms": [{"text": "同义/近义或可替换表达（词汇、短语或句式）", "type": "word|phrase|sentence_pattern"}]
     }
   ]
 }`;

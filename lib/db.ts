@@ -49,6 +49,7 @@ function migrate(database: Database.Database) {
       personal_relevance_score INTEGER NOT NULL DEFAULT 3,
       study_priority TEXT NOT NULL DEFAULT '一般学习',
       familiarity_level TEXT NOT NULL DEFAULT '完全陌生',
+      synonyms TEXT,
       status TEXT NOT NULL DEFAULT 'candidate',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(source_material_id) REFERENCES learning_materials(id)
@@ -111,6 +112,7 @@ function migrate(database: Database.Database) {
   `);
   ensureColumn(database, "learning_items", "study_priority", "TEXT NOT NULL DEFAULT '一般学习'");
   ensureColumn(database, "learning_items", "familiarity_level", "TEXT NOT NULL DEFAULT '完全陌生'");
+  ensureColumn(database, "learning_items", "synonyms", "TEXT");
   renameColumnIfExists(database, "review_schedules", "status", "next_action");
 }
 
@@ -179,11 +181,11 @@ export function insertLearningItems(items: LearningItemInput[], status: string, 
     INSERT INTO learning_items (
       expression, type, meaning_cn, explanation_en, example_sentence, speaking_scenario, why_learn,
       source_material_id, topic, difficulty_level, ai_value_score, speaking_usefulness_score,
-      business_relevance_score, personal_relevance_score, status
+      business_relevance_score, personal_relevance_score, synonyms, status
     ) VALUES (
       @expression, @type, @meaning_cn, @explanation_en, @example_sentence, @speaking_scenario, @why_learn,
       @source_material_id, @topic, @difficulty_level, @ai_value_score, @speaking_usefulness_score,
-      @business_relevance_score, @personal_relevance_score, @status
+      @business_relevance_score, @personal_relevance_score, @synonyms, @status
     )
   `);
 
@@ -191,6 +193,7 @@ export function insertLearningItems(items: LearningItemInput[], status: string, 
     ...item,
     source_material_id: sourceMaterialId ?? null,
     topic: item.topic ?? fallbackTopic ?? "",
+    synonyms: item.synonyms?.length ? JSON.stringify(item.synonyms) : null,
     status
   }));
 
@@ -327,6 +330,7 @@ export function updateItem(id: number, patch: Record<string, unknown>) {
     "difficulty_level",
     "study_priority",
     "familiarity_level",
+    "synonyms",
     "status"
   ];
   const keys = Object.keys(patch).filter((key) => allowed.includes(key));

@@ -77,7 +77,8 @@ Return strict JSON only:
       "ai_value_score": 1-5,
       "speaking_usefulness_score": 1-5,
       "business_relevance_score": 1-5,
-      "personal_relevance_score": 1-5
+      "personal_relevance_score": 1-5,
+      "synonyms": [{"text": "同义/近义或可替换表达（词汇、短语或句式）", "type": "word|phrase|sentence_pattern"}]
     }
   ]
 }`;
@@ -96,6 +97,7 @@ Item mix policy:
 - Do include some abstract social-science vocabulary that educated people regularly read in mainstream news and use in discussion — e.g. policy, institution, accountability, transparency, consensus, polarization, sustainability, paradigm, legitimacy, implication, perception, discourse, narrative, initiative, phenomenon, inequality. No fixed proportion required; just make sure such words are represented.
 - Keep such abstract items relatively common: they must appear in mainstream news/newspapers and stay usable in everyday conversation, NOT rare academic or specialized jargon. If a word would only show up in academic papers, exclude it.
 - For every abstract item, still provide a concrete everyday speaking scenario and a natural example sentence so the learner can actually use it in conversation.
+- For EVERY item, include 2-4 synonyms or paraphrases (words, phrases, or sentence patterns) that a native speaker could use to say the same thing, so the learner can vary their expression.
 
 ${itemSchema}`;
   const user = `Material title: ${input.title}
@@ -134,6 +136,7 @@ Difficulty policy:
 - Avoid overly simple textbook expressions such as "by the way", "make a decision", "I think", "very good", "have you ever", unless the user's requested difficulty is A1/A2.
 - Prefer reusable sentence frames, collocations, discourse phrases, and golden expressions that help the learner sound more natural and articulate.
 - Avoid rare, literary, slangy, or test-only expressions.
+- For EVERY item, include 2-4 synonyms or paraphrases (words, phrases, or sentence patterns) that a native speaker could use to say the same thing, so the learner can vary their expression.
 
 ${itemSchema}`;
   const user = `Generate ${input.count} learning_items.

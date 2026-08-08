@@ -17,6 +17,45 @@ const editableTextFields = [
   "status"
 ];
 
+function parseSynonyms(raw: any): { text: string; type?: string }[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      /* ignore */
+    }
+  }
+  return [];
+}
+
+function renderSynonyms(raw: any): string {
+  const list = parseSynonyms(raw);
+  if (!list.length) return "—";
+  return list
+    .map((s) => (s.type && s.type !== "word" ? `${s.text} (${s.type})` : s.text))
+    .join("；");
+}
+
+function synonymsToLines(raw: any): string {
+  return parseSynonyms(raw)
+    .map((s) => (s.type && s.type !== "word" ? `${s.text}|${s.type}` : s.text))
+    .join("\n");
+}
+
+function linesToSynonyms(text: string): string {
+  const list = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      return { text: parts[0], type: parts[1] || "word" };
+    });
+  return JSON.stringify(list);
+}
+
 function studiedLabel(value?: string | null) {
   if (!value) return "未学";
   const studied = new Date(value);
@@ -150,6 +189,14 @@ export function ItemCard({
               {familiarityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
+          <label className="field md:col-span-2">
+            <span className="label">synonyms（每行一条：text|type，type 可省略）</span>
+            <textarea
+              value={synonymsToLines(form.synonyms)}
+              onChange={(event) => setForm({ ...form, synonyms: linesToSynonyms(event.target.value) })}
+              rows={3}
+            />
+          </label>
           <button onClick={save} className="btn-primary md:col-span-2">保存</button>
         </div>
       ) : (
@@ -158,6 +205,7 @@ export function ItemCard({
           <p><b>Example:</b> {currentItem.example_sentence}</p>
           <p><b>Why:</b> {currentItem.why_learn}</p>
           <p><b>Scenario:</b> {currentItem.speaking_scenario}</p>
+          <p><b>Synonyms:</b> {renderSynonyms(currentItem.synonyms)}</p>
           <p><b>Manual tags:</b> {currentItem.study_priority || "一般学习"} · {currentItem.familiarity_level || "完全陌生"}</p>
           <p><b>Scores:</b> AI {currentItem.ai_value_score} / Speaking {currentItem.speaking_usefulness_score} / Business {currentItem.business_relevance_score} / Personal {currentItem.personal_relevance_score}</p>
           <p><b>Learning time:</b> {studiedLabel(currentItem.last_practiced_at)} · {currentItem.last_practiced_at || "no record"}</p>
